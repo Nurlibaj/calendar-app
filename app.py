@@ -30,7 +30,7 @@ def index():
 @app.route('/events')
 def get_events():
     try:
-        response = requests.get(ICS_URL)
+        response = requests.get(ICS_URL, headers={"Cache-Control": "no-cache"})
         response.raise_for_status()
         calendar = Calendar(response.text)
     except Exception as e:
@@ -96,19 +96,15 @@ def get_chat():
     ChatMessage.query.filter(ChatMessage.timestamp < limit_time).delete()
     db.session.commit()
 
-    # 👇 Эта строка заставляет SQLAlchemy перечитать данные из базы
-    db.session.expire_all()
+    messages = ChatMessage.query.order_by(ChatMessage.timestamp.asc()).all()
 
-    last_message = ChatMessage.query.order_by(ChatMessage.timestamp.desc()).first()
+    return jsonify([
+        {
+            "content": msg.content,
+            "timestamp": msg.timestamp.strftime("%H:%M")
+        } for msg in messages
+    ])
 
-    if last_message:
-        db.session.refresh(last_message)
-        return jsonify([{
-            "content": last_message.content,
-            "timestamp": last_message.timestamp.strftime("%H:%M")
-        }])
-    else:
-        return jsonify([])
 
 
 
