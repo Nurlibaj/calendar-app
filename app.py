@@ -152,6 +152,13 @@ def send_form():
 
     return render_template('send.html')
 
+@app.route('/init-db')
+def init_db():
+    with app.app_context():
+        db.create_all()
+    return "Таблицы созданы!"
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
