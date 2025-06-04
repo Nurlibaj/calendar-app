@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Calendar + Chat</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="sidebar">
+    <div class="top-info">
+      <div class="datetime">
+        <div class="today-date" id="date">--.--.----</div>
+        <div class="time" id="time">--:--</div>
+      </div>
+      <div class="avatar">
+        <img class="head" src="/static/faiz.png" alt="User Avatar">
+        <div class="user-name">Dr. Faiz Iqbal</div>
+        <div class="user-email">faiz.iqbal@example.com</div>
+        <div id="status-block" class="status free">🟢 free</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div id="event-list" class="event-container">
+      <div class="event-card empty">Загрузка событий...</div>
+    </div>
+  </div>
+
+  <div class="chat-container" id="chat-box">
+    <div class="chat-message">Загрузка чата...</div>
+  </div>
+
+  <script>
+    function updateTime() {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const day = now.getDate().toString().padStart(2, '0');
+      const month = (now.getMonth() + 1).toString().padStart(2, '0');
+      const year = now.getFullYear();
+      document.getElementById('time').textContent = `${hours}:${minutes}`;
+      document.getElementById('date').textContent = `${day}.${month}.${year}`;
+    }
+
+    function loadEvents() {
+      fetch('/events')
+        .then(response => response.json())
+        .then(data => {
+          const statusBlock = document.getElementById('status-block');
+          const status = data.status;
+
+          statusBlock.classList.remove('free', 'busy', 'tentative', 'oof');
+
+          if (status === 'free') {
+            statusBlock.textContent = '🟢 free';
+            statusBlock.classList.add('free');
+          } else if (status === 'busy') {
+            statusBlock.textContent = '🔴 busy';
+            statusBlock.classList.add('busy');
+          } else if (status === 'tentative') {
+            statusBlock.textContent = '🟡 tentative';
+            statusBlock.classList.add('tentative');
+          } else if (status === 'out of office') {
+            statusBlock.textContent = '🔵 out of office';
+            statusBlock.classList.add('oof');
+          } else {
+            statusBlock.textContent = '⚪ unknown';
+          }
+
+          const events = data.events;
+          const container = document.getElementById('event-list');
+          container.innerHTML = '';
+          if (events.length === 0) {
+            container.innerHTML = '<div class="event-card empty">📭 No event today</div>';
+          } else {
+            events.forEach(event => {
+              const card = document.createElement('div');
+              card.className = 'event-card';
+              card.innerHTML = `
+                <div><strong>Title:</strong> ${event.title}</div>
+                <div><strong>Time:</strong> ${event.start} – ${event.end}</div>
+                <div><strong>Location:</strong> ${event.location || '—'}</div>
+                <div><strong>Extra:</strong> ${event.description || '—'}</div>
+              `;
+              container.appendChild(card);
+            });
+          }
+        });
+    }
+
+   function loadChat() {
+  fetch('/chat?ts=' + new Date().getTime())
+    .then(response => response.json())
+    .then(data => {
+      const box = document.getElementById('chat-box');
+      box.innerHTML = '';
+      data.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'chat-message';
+        div.innerHTML = `<div>${msg.content}</div><div class="chat-time">${msg.timestamp}</div>`;
+        box.appendChild(div);
+      });
+    });
+}
+
+
+    updateTime();
+    loadEvents();
+    loadChat();
+    setInterval(updateTime, 30000);
+    setInterval(loadEvents, 10 * 60 * 1000);
+    setInterval(loadChat, 60000);
+  </script>
+</body>
+</html>
