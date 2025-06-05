@@ -13,14 +13,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# Модель сообщений чата
 class ChatMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(500))
     timestamp = db.Column(db.DateTime, default=datetime.now(timezone.utc))
 
-# ICS календарь
-#ICS_URL = "https://outlook.office365.com/owa/calendar/2735ffb1f9bd4648ab3dc9226825c675@lincoln.ac.uk/bd6830136a1749a98a6b452ea4d4e3cc6334812304006105882/calendar.ics"
 ICS_URL = "https://outlook.office365.com/owa/calendar/f049117561b64b3daa03684d3fdcbd7e@akb.nis.edu.kz/a5a59de348bf4d449e7757adbc6af4a114622577659288145240/calendar.ics"
 
 @app.route('/')
@@ -60,15 +57,14 @@ def get_events():
     max_priority = 0
 
     for event in calendar.timeline.included(today_start, today_end):
+        if event.end and event.end <= now:
+            continue  # Пропустить завершённые события
+
         event_status = None
-
-
-
         for extra in event.extra:
             if extra.name.upper() == "X-MICROSOFT-CDO-BUSYSTATUS":
                 event_status = extra.value.upper()
                 break
-
 
         if event.begin <= now <= (event.end or event.begin) and event_status:
             prio = status_priority.get(event_status, 0)
@@ -89,7 +85,6 @@ def get_events():
         "events": today_events
     })
 
-
 @app.route('/chat')
 def get_chat():
     limit_time = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -101,14 +96,10 @@ def get_chat():
     return jsonify([
         {
             "content": msg.content,
-            "timestamp": msg.timestamp.strftime("%H:%M")
+            "timestamp": msg.timestamp.strftime("%H:%M %d.%m.%Y")
         } for msg in messages
     ])
 
-
-
-
-# Авторизация
 USERNAME = 'admin'
 PASSWORD = 'qwerty123'
 
@@ -154,9 +145,7 @@ def init_db():
         db.create_all()
     return "Таблицы созданы!"
 
-
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(host='0.0.0.0', port=5000, debug=False)
-
