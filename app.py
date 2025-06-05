@@ -87,11 +87,16 @@ def get_events():
 
 @app.route('/chat')
 def get_chat():
-    limit_time = datetime.now(timezone.utc) - timedelta(hours=24)
+    now = datetime.now(timezone.utc)
+    start_of_day = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+
+    limit_time = now - timedelta(hours=24)
     ChatMessage.query.filter(ChatMessage.timestamp < limit_time).delete()
     db.session.commit()
 
-    messages = ChatMessage.query.order_by(ChatMessage.timestamp.asc()).all()
+    messages = ChatMessage.query \
+        .filter(ChatMessage.timestamp >= start_of_day) \
+        .order_by(ChatMessage.timestamp.asc()).all()
 
     return jsonify([
         {
