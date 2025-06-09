@@ -4,24 +4,29 @@ from flask_sqlalchemy import SQLAlchemy
 from ics import Calendar
 import requests
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'calendar')
-
-# Time zone configuration. Defaults to UTC but can be overridden
-# with the TIMEZONE environment variable.
-LOCAL_TZ = ZoneInfo(os.environ.get("TIMEZONE", "UTC"))
 
 # Настройка базы данных
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///data.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+def get_london_time():
+    try:
+        response = requests.get("http://worldtimeapi.org/api/timezone/Europe/London", timeout=5)
+        response.raise_for_status()
+        london_time_str = response.json()['datetime']
+        return datetime.fromisoformat(london_time_str)
+    except Exception as e:
+        print("Ошибка при получении времени из интернета:", e)
+        return datetime.utcnow()
+
 class ChatMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(500))
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(LOCAL_TZ))
+    timestamp = db.Column(db.DateTime, default=get_london_time)
 
 ICS_URL = "https://outlook.office365.com/owa/calendar/f049117561b64b3daa03684d3fdcbd7e@akb.nis.edu.kz/a5a59de348bf4d449e7757adbc6af4a114622577659288145240/calendar.ics"
 
@@ -38,8 +43,8 @@ def get_events():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    now = datetime.now(LOCAL_TZ)
-    today_start = datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ)
+    now = get_london_time()
+    today_start = datetime(now.year, now.month, now.day, tzinfo=now.tzinfo)
     today_end = today_start + timedelta(days=1)
 
     today_events = []
@@ -92,8 +97,8 @@ def get_events():
 
 @app.route('/chat')
 def get_chat():
-    now = datetime.now(LOCAL_TZ)
-    start_of_day = datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ)
+    now = get_london_time()
+    start_of_day = datetime(now.year, now.month, now.day, tzinfo=now.tzinfo)
 
     limit_time = now - timedelta(hours=24)
     ChatMessage.query.filter(ChatMessage.timestamp < limit_time).delete()
