@@ -1,4 +1,5 @@
 import os
+import pytz
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from ics import Calendar
@@ -13,16 +14,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+LONDON = pytz.timezone('Europe/London')
+
 def get_london_time():
-    try:
-        response = requests.get("https://timeapi.io/api/Time/current/zone?timeZone=Europe/London", timeout=5)
-        response.raise_for_status()
-        london_time_str = response.json()['dateTime']  # Пример: "2025-06-10T13:45:00"
-        print("time=",london_time_str)
-        return datetime.fromisoformat(london_time_str)
-    except Exception as e:
-        print("Ошибка при получении времени из интернета:", e)
-        return datetime.utcnow()
+    print("time=",datetime.now(LONDON))
+    return datetime.now(LONDON)
 
 
 
