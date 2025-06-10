@@ -18,6 +18,7 @@ def get_london_time():
         response = requests.get("https://timeapi.io/api/Time/current/zone?timeZone=Europe/London", timeout=5)
         response.raise_for_status()
         london_time_str = response.json()['dateTime']  # Пример: "2025-06-10T13:45:00"
+        print("time=",london_time_str)
         return datetime.fromisoformat(london_time_str)
     except Exception as e:
         print("Ошибка при получении времени из интернета:", e)
