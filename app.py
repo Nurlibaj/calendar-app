@@ -43,49 +43,54 @@ def get_events():
         return jsonify({"error": str(e)}), 500
 
     now = get_london_time()
-    today_start = datetime(now.year, now.month, now.day, tzinfo=now.tzinfo)
-    today_end = today_start + timedelta(days=1)
+    today_start = datetime(now.year, now.month, now.day, tzinfo=LONDON)
+    today_end   = today_start + timedelta(days=1)
 
-    today_events = []
+    today_events   = []
     current_status = "free"
-
-    status_priority = {
-        "OOF": 4,
-        "BUSY": 3,
-        "TENTATIVE": 2,
-        "FREE": 1
-    }
-
-    status_labels = {
-        "OOF": "out of office",
-        "BUSY": "busy",
-        "TENTATIVE": "tentative",
-        "FREE": "free"
-    }
-
-    max_priority = 0
+    status_priority = {"OOF": 4, "BUSY": 3, "TENTATIVE": 2, "FREE": 1}
+    status_labels   = {"OOF": "out of office", "BUSY": "busy", "TENTATIVE": "tentative", "FREE": "free"}
+    max_priority    = 0
 
     for event in calendar.timeline.included(today_start, today_end):
-        if event.end and event.end <= now:
-            continue  # Пропустить завершённые события
+        # 1) Извлекаем чистые datetime из ICS
+        start_dt = event.begin.dt
+        end_dt   = event.end.dt if event.end else start_dt
 
-        event_status = None
-        for extra in event.extra:
-            if extra.name.upper() == "X-MICROSOFT-CDO-BUSYSTATUS":
-                event_status = extra.value.upper()
-                break
+        # 2) Если нет tzinfo — "надеваем" London, иначе конвертим
+        if start_dt.tzinfo is None:
+            start_dt = LONDON.localize(start_dt)
+        else:
+            start_dt = start_dt.astimezone(LONDON)
 
-        if event.begin <= now <= (event.end or event.begin) and event_status:
+        if end_dt.tzinfo is None:
+            end_dt = LONDON.localize(end_dt)
+        else:
+            end_dt = end_dt.astimezone(LONDON)
+
+        # 3) Пропускаем, если уже закончилось
+        if end_dt <= now:
+            continue
+
+        # 4) Читаем статус события
+        event_status = next(
+            (e.value.upper() for e in event.extra
+             if e.name.upper() == "X-MICROSOFT-CDO-BUSYSTATUS"),
+            "FREE"
+        )
+        # Если оно прямо сейчас активно — обновляем статус ответа
+        if start_dt <= now <= end_dt:
             prio = status_priority.get(event_status, 0)
             if prio > max_priority:
-                max_priority = prio
-                current_status = status_labels.get(event_status, "free")
+                max_priority    = prio
+                current_status  = status_labels.get(event_status, "free")
 
+        # 5) Добавляем в список будущих/текущих
         today_events.append({
-            "title": event.name,
-            "start": event.begin.format("HH:mm"),
-            "end": event.end.format("HH:mm") if event.end else "",
-            "location": event.location or "",
+            "title":       event.name,
+            "start":       start_dt.strftime("%H:%M"),
+            "end":         end_dt.strftime("%H:%M"),
+            "location":    event.location or "",
             "description": event.description or ""
         })
 
