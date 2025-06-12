@@ -4,7 +4,6 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_sqlalchemy import SQLAlchemy
 from ics import Calendar
 import requests
-from zoneinfo import ZoneInfo
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
@@ -33,61 +32,60 @@ ICS_URL = "https://outlook.office365.com/owa/calendar/f049117561b64b3daa03684d3f
 @app.route('/')
 def index():
     return render_template('index.html')
-LONDON = ZoneInfo("Europe/London")
-
-def get_london_time():
-    # возвращаем сейчас в Europe/London, автоматически учитывая DST
-    return datetime.now(tz=LONDON)
 
 @app.route('/events')
 def get_events():
-    # ... загрузка ICS, calendar = Calendar(response.text) и т.п.
+    try:
+        response = requests.get(ICS_URL, headers={"Cache-Control": "no-cache"})
+        response.raise_for_status()
+        calendar = Calendar(response.text)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
     now = get_london_time()
-    # границы «сегодня» в лондонской зоне:
     today_start = datetime(now.year, now.month, now.day, tzinfo=LONDON)
     today_end   = today_start + timedelta(days=1)
 
     today_events   = []
-    status_priority = {"OOF":4, "BUSY":3, "TENTATIVE":2, "FREE":1}
-    status_labels   = {"OOF":"out of office","BUSY":"busy","TENTATIVE":"tentative","FREE":"free"}
     current_status = "free"
-    max_priority   = status_priority[current_status]
+    status_priority = {"OOF": 4, "BUSY": 3, "TENTATIVE": 2, "FREE": 1}
+    status_labels   = {"OOF": "out of office", "BUSY": "busy", "TENTATIVE": "tentative", "FREE": "free"}
+    max_priority    = 0
 
     for event in calendar.timeline.included(today_start, today_end):
-        # 1) Извлекаем чистые datetime из Arrow
-        start_dt = getattr(event.begin, "naive", event.begin)
-        end_dt   = getattr(event.end,   "naive", event.end) or start_dt
+        # 1) Извлекаем чистые datetime из ICS
+        start_dt = event.begin.dt
+        end_dt   = event.end.dt if event.end else start_dt
 
-        # 2) Локализуем плавающие и конвертим зонные в London
+        # 2) Если нет tzinfo — "надеваем" London, иначе конвертим
         if start_dt.tzinfo is None:
-            start_dt = start_dt.replace(tzinfo=LONDON)
+            start_dt = LONDON.localize(start_dt)
         else:
             start_dt = start_dt.astimezone(LONDON)
 
         if end_dt.tzinfo is None:
-            end_dt = end_dt.replace(tzinfo=LONDON)
+            end_dt = LONDON.localize(end_dt)
         else:
             end_dt = end_dt.astimezone(LONDON)
 
-        # 3) Отсеиваем завершённые
+        # 3) Пропускаем, если уже закончилось
         if end_dt <= now:
             continue
 
-        # 4) Читаем X-Microsoft статус
+        # 4) Читаем статус события
         event_status = next(
             (e.value.upper() for e in event.extra
-             if e.name.upper()=="X-MICROSOFT-CDO-BUSYSTATUS"),
+             if e.name.upper() == "X-MICROSOFT-CDO-BUSYSTATUS"),
             "FREE"
         )
-        # Обновляем статус, если событие сейчас активно
+        # Если оно прямо сейчас активно — обновляем статус ответа
         if start_dt <= now <= end_dt:
             prio = status_priority.get(event_status, 0)
             if prio > max_priority:
                 max_priority    = prio
-                current_status  = status_labels[event_status]
+                current_status  = status_labels.get(event_status, "free")
 
-        # 5) Собираем вывод
+        # 5) Добавляем в список будущих/текущих
         today_events.append({
             "title":       event.name,
             "start":       start_dt.strftime("%H:%M"),
