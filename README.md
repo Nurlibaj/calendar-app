@@ -4,7 +4,7 @@ This simple calendar app reads a public Outlook calendar in ICS format and expos
 
 ## Time zone configuration
 
-The application calculates current time using the zone info from `TIMEZONE`. If the variable is unset, UTC is used.
+The application calculates current time using the zone info from `TIMEZONE`. If the variable is unset, `Europe/London` is used.
 
 To run the app using the local time in the United Kingdom, set the variable to `Europe/London`:
 

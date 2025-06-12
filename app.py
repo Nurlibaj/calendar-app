@@ -14,11 +14,16 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-LONDON = pytz.timezone('Europe/London')
+# Time zone used for all date calculations. It can be overridden by
+# the TIMEZONE environment variable so deployments can display local
+# times correctly.
+LOCAL_TZ = pytz.timezone(os.environ.get('TIMEZONE', 'Europe/London'))
 
-def get_london_time():
-    print("time=",datetime.now(LONDON))
-    return datetime.now(LONDON)
+def get_local_time():
+    """Return current time in the configured time zone."""
+    current = datetime.now(LOCAL_TZ)
+    print("time=", current)
+    return current
 
 
 
@@ -26,7 +31,7 @@ class ChatMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(500))
     # Store timezone-aware datetimes to avoid off-by-one-hour shifts
-    timestamp = db.Column(db.DateTime(timezone=True), default=get_london_time)
+    timestamp = db.Column(db.DateTime(timezone=True), default=get_local_time)
 
 ICS_URL = "https://outlook.office365.com/owa/calendar/f049117561b64b3daa03684d3fdcbd7e@akb.nis.edu.kz/a5a59de348bf4d449e7757adbc6af4a114622577659288145240/calendar.ics"
 
@@ -59,8 +64,8 @@ def get_events():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    now = get_london_time()
-    today_start = datetime(now.year, now.month, now.day, tzinfo=LONDON)
+    now = get_local_time()
+    today_start = datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ)
     today_end   = today_start + timedelta(days=1)
 
     today_events   = []
@@ -74,16 +79,16 @@ def get_events():
         start_dt = event.begin.datetime
         end_dt   = event.end.datetime if event.end else start_dt
 
-        # 2) Если нет tzinfo — "надеваем" London, иначе конвертим
+        # 2) Если нет tzinfo — "надеваем" локальную зону, иначе конвертим
         if start_dt.tzinfo is None:
-            start_dt = LONDON.localize(start_dt)
+            start_dt = LOCAL_TZ.localize(start_dt)
         else:
-            start_dt = start_dt.astimezone(LONDON)
+            start_dt = start_dt.astimezone(LOCAL_TZ)
 
         if end_dt.tzinfo is None:
-            end_dt = LONDON.localize(end_dt)
+            end_dt = LOCAL_TZ.localize(end_dt)
         else:
-            end_dt = end_dt.astimezone(LONDON)
+            end_dt = end_dt.astimezone(LOCAL_TZ)
 
         # 3) Пропускаем, если уже закончилось
         if end_dt <= now:
@@ -118,7 +123,7 @@ def get_events():
 
 @app.route('/chat')
 def get_chat():
-    now = get_london_time()
+    now = get_local_time()
     start_of_day = datetime(now.year, now.month, now.day, tzinfo=now.tzinfo)
 
     limit_time = now - timedelta(hours=24)
@@ -132,8 +137,8 @@ def get_chat():
     return jsonify([
         {
             "content": msg.content,
-            # Convert timestamps back to London time when displaying
-            "timestamp": msg.timestamp.astimezone(LONDON).strftime("%H:%M %d.%m.%Y")
+            # Convert timestamps back to the configured time zone when displaying
+            "timestamp": msg.timestamp.astimezone(LOCAL_TZ).strftime("%H:%M %d.%m.%Y")
         } for msg in messages
     ])
 
