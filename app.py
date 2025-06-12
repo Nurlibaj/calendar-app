@@ -54,8 +54,8 @@ def get_events():
 
     for event in calendar.timeline.included(today_start, today_end):
         # 1) Извлекаем чистые datetime из ICS
-        start_dt = event.begin.dt
-        end_dt   = event.end.dt if event.end else start_dt
+        start_dt = event.begin.datetime
+        end_dt   = event.end.datetime if event.end else start_dt
 
         # 2) Если нет tzinfo — "надеваем" London, иначе конвертим
         if start_dt.tzinfo is None:
