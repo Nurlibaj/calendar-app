@@ -25,9 +25,21 @@ def get_london_time():
 class ChatMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(500))
-    timestamp = db.Column(db.DateTime, default=get_london_time)
+    # Store timezone-aware datetimes to avoid off-by-one-hour shifts
+    timestamp = db.Column(db.DateTime(timezone=True), default=get_london_time)
 
 ICS_URL = "https://outlook.office365.com/owa/calendar/f049117561b64b3daa03684d3fdcbd7e@akb.nis.edu.kz/a5a59de348bf4d449e7757adbc6af4a114622577659288145240/calendar.ics"
+
+# Outlook’s ICS uses Microsoft time zone identifiers like
+# ``West Asia Standard Time``. These are not recognized by ``pytz``,
+# which leads to naive datetimes that are treated as London time.
+# To keep event times correct we replace the Microsoft IDs with
+# equivalent IANA names before parsing the calendar.
+MS_TIMEZONE_MAP = {
+    "West Asia Standard Time": "Asia/Qyzylorda",
+    "Qyzylorda Standard Time": "Asia/Qyzylorda",
+    "GMT Standard Time": "Europe/London",
+}
 
 @app.route('/')
 def index():
@@ -38,7 +50,12 @@ def get_events():
     try:
         response = requests.get(ICS_URL, headers={"Cache-Control": "no-cache"})
         response.raise_for_status()
-        calendar = Calendar(response.text)
+
+        ics_text = response.text
+        for ms_name, iana_name in MS_TIMEZONE_MAP.items():
+            ics_text = ics_text.replace(ms_name, iana_name)
+
+        calendar = Calendar(ics_text)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -115,7 +132,8 @@ def get_chat():
     return jsonify([
         {
             "content": msg.content,
-            "timestamp": msg.timestamp.strftime("%H:%M %d.%m.%Y")
+            # Convert timestamps back to London time when displaying
+            "timestamp": msg.timestamp.astimezone(LONDON).strftime("%H:%M %d.%m.%Y")
         } for msg in messages
     ])
 
