@@ -138,7 +138,10 @@ def get_chat():
         {
             "content": msg.content,
             # Convert timestamps back to the configured time zone when displaying
-            "timestamp": msg.timestamp.astimezone(LOCAL_TZ).strftime("%H:%M %d.%m.%Y")
+            # and add one hour to the display time as requested
+            "timestamp": (
+                msg.timestamp.astimezone(LOCAL_TZ) + timedelta(hours=1)
+            ).strftime("%H:%M %d.%m.%Y")
         } for msg in messages
     ])
 
