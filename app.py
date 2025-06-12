@@ -25,7 +25,8 @@ def get_london_time():
 class ChatMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(500))
-    timestamp = db.Column(db.DateTime, default=get_london_time)
+    # Store timezone-aware datetimes to avoid off-by-one-hour shifts
+    timestamp = db.Column(db.DateTime(timezone=True), default=get_london_time)
 
 ICS_URL = "https://outlook.office365.com/owa/calendar/f049117561b64b3daa03684d3fdcbd7e@akb.nis.edu.kz/a5a59de348bf4d449e7757adbc6af4a114622577659288145240/calendar.ics"
 
@@ -131,7 +132,8 @@ def get_chat():
     return jsonify([
         {
             "content": msg.content,
-            "timestamp": msg.timestamp.strftime("%H:%M %d.%m.%Y")
+            # Convert timestamps back to London time when displaying
+            "timestamp": msg.timestamp.astimezone(LONDON).strftime("%H:%M %d.%m.%Y")
         } for msg in messages
     ])
 
