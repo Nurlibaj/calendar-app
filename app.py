@@ -33,8 +33,7 @@ class ChatMessage(db.Model):
     # Store timezone-aware datetimes to avoid off-by-one-hour shifts
     timestamp = db.Column(db.DateTime(timezone=True), default=get_local_time)
 
-ICS_URL = "https://outlook.office365.com/owa/calendar/f049117561b64b3daa03684d3fdcbd7e@akb.nis.edu.kz/a5a59de348bf4d449e7757adbc6af4a114622577659288145240/calendar.ics"
-
+ICS_URL = "https://outlook.office365.com/owa/calendar/2735ffb1f9bd4648ab3dc9226825c675@lincoln.ac.uk/bd6830136a1749a98a6b452ea4d4e3cc6334812304006105882/calendar.ics"
 # Outlook’s ICS uses Microsoft time zone identifiers like
 # ``West Asia Standard Time``. These are not recognized by ``pytz``,
 # which leads to naive datetimes that are treated as London time.

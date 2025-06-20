@@ -49,7 +49,7 @@
   </style>
 </head>
 <body>
-  <h2>📝 Добавить сообщение в чат</h2>
+  <h2>📝 Add messages to chat</h2>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -60,11 +60,11 @@
   {% endwith %}
 
   <form method="POST">
-    <textarea name="content" placeholder="Введите сообщение..."></textarea>
+    <textarea name="content" placeholder="Enter messages..."></textarea>
     <br>
-    <button type="submit">Отправить</button>
+    <button type="submit">Send</button>
   </form>
 
-  <a href="{{ url_for('logout') }}" class="logout-link">🚪 Выйти</a>
+  <a href="{{ url_for('logout') }}" class="logout-link">🚪 Log out</a>
 </body>
 </html>
